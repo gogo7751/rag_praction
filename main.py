@@ -1,4 +1,4 @@
-from langchain_openai import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from sentence_transformers import SentenceTransformer
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain.schema import HumanMessage, SystemMessage
@@ -18,6 +18,12 @@ AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-08-01-preview")
 
+AZURE_OPENAI_API_EMBEDDING_KEY = os.getenv("AZURE_OPENAI_API_EMBEDDING_KEY")
+AZURE_OPENAI_API_EMBEDDING_RESOURCE_NAME = os.getenv("AZURE_OPENAI_API_EMBEDDING_RESOURCE_NAME")
+AZURE_OPENAI_API_EMBEDDING_VERSION = os.getenv("AZURE_OPENAI_API_EMBEDDING_VERSION")
+AZURE_OPENAI_EMBEDDING_ENDPOINT = os.getenv("AZURE_OPENAI_EMBEDDING_ENDPOINT")
+AZURE_OPENAI_API_EMBEDDING_MODEL = os.getenv("AZURE_OPENAI_API_EMBEDDING_MODEL")
+
 # 定義消息格式
 class Message(BaseModel):
     role: str = Field(..., pattern="^(user|assistant|system)$")
@@ -31,29 +37,35 @@ llm = AzureChatOpenAI(
     openai_api_version=AZURE_OPENAI_API_VERSION,
 )
 
-# 使用 sentence-transformers 進行嵌入
+# 使用 Azure OpenAI 嵌入模型
+embedding_model = AzureOpenAIEmbeddings(
+    model=AZURE_OPENAI_API_EMBEDDING_MODEL,
+    azure_endpoint=AZURE_OPENAI_EMBEDDING_ENDPOINT,
+    openai_api_version=AZURE_OPENAI_API_EMBEDDING_VERSION,
+    openai_api_key=AZURE_OPENAI_API_EMBEDDING_KEY,
+)
+
+# 初始化向量資料庫
+vectorstore = InMemoryVectorStore(embedding=embedding_model)
+
+# 可選：使用本地嵌入模型（如需要可切換）
+"""
 class SentenceTransformerWrapper:
     def __init__(self, model_name):
         self.model = SentenceTransformer(model_name)
         self.model.max_seq_length = 512
 
     def embed_documents(self, texts):
-        """嵌入多個文檔"""
-        vectors = self.model.encode(texts, convert_to_numpy=True)
-        print(f"嵌入文檔成功！向量類型：{type(vectors)}, 向量數量：{len(vectors)}")
-        return vectors
+        #嵌入多個文檔
+        return self.model.encode(texts, convert_to_numpy=True)
 
     def embed_query(self, text):
-        """嵌入單個查詢"""
-        vector = self.model.encode([text], convert_to_numpy=True)[0]
-        print(f"嵌入查詢成功！向量類型：{type(vector)}, 向量長度：{len(vector)}")
-        return vector
+        #嵌入單個查詢
+        return self.model.encode([text], convert_to_numpy=True)[0]
 
-# 初始化嵌入模型
+# 初始化本地嵌入模型
 embedding_model = SentenceTransformerWrapper("all-MiniLM-L6-v2")
-
-# 初始化向量資料庫
-vectorstore = InMemoryVectorStore(embedding=embedding_model)
+"""
 
 # OCR 功能：提取圖片中的文字
 def extract_text_from_image(image_path: str) -> str:
@@ -101,7 +113,7 @@ def handle_user_query(query: str):
         print("檢索器初始化成功！")
 
         # 使用檢索器進行檢索
-        results = retriever.invoke(query)
+        results = retriever.get_relevant_documents(query)
         print(f"檢索到 {len(results)} 條相關資料")
 
         if not results:

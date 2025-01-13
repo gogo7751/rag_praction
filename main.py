@@ -1,8 +1,8 @@
 from langchain_openai import AzureChatOpenAI
 from sentence_transformers import SentenceTransformer
 from langchain_core.vectorstores import InMemoryVectorStore
-from langchain.schema import HumanMessage, AIMessage, SystemMessage, BaseMessage
-from pydantic import BaseModel, ValidationError, Field
+from langchain.schema import HumanMessage, SystemMessage
+from pydantic import BaseModel, Field
 from typing import List
 from PIL import Image
 import pytesseract
@@ -101,7 +101,7 @@ def handle_user_query(query: str):
         print("檢索器初始化成功！")
 
         # 使用檢索器進行檢索
-        results = retriever.get_relevant_documents(query)
+        results = retriever.invoke(query)
         print(f"檢索到 {len(results)} 條相關資料")
 
         if not results:
